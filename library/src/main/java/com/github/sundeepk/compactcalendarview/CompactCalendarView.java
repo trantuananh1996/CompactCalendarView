@@ -5,13 +5,14 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
-import android.support.v4.view.GestureDetectorCompat;
 import android.util.AttributeSet;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.VelocityTracker;
 import android.view.View;
 import android.widget.OverScroller;
+
+import androidx.core.view.GestureDetectorCompat;
 
 import com.github.sundeepk.compactcalendarview.domain.Event;
 
@@ -22,7 +23,6 @@ import java.util.Locale;
 import java.util.TimeZone;
 
 public class CompactCalendarView extends View {
-
     public static final int FILL_LARGE_INDICATOR = 1;
     public static final int NO_FILL_LARGE_INDICATOR = 2;
     public static final int SMALL_INDICATOR = 3;
@@ -33,7 +33,7 @@ public class CompactCalendarView extends View {
     private boolean horizontalScrollEnabled = true;
 
     public interface CompactCalendarViewListener {
-        public void onDayClick(Date dateClicked);
+        public void onDayClick(Date dateClicked,MotionEvent event);
         public void onMonthScroll(Date firstDayOfNewMonth);
     }
 
@@ -435,5 +435,13 @@ public class CompactCalendarView extends View {
         // Prevents ViewPager from scrolling horizontally by announcing that (issue #82)
         return this.horizontalScrollEnabled;
     }
+    public void showNextMonth() {
+        compactCalendarController.showNextMonth();
+        invalidate();
+    }
 
+    public void showPreviousMonth() {
+        compactCalendarController.showPreviousMonth();
+        invalidate();
+    }
 }
