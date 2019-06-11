@@ -10,6 +10,7 @@ import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.util.TypedValue;
 import android.view.MotionEvent;
 import android.view.VelocityTracker;
@@ -31,6 +32,14 @@ import static com.github.sundeepk.compactcalendarview.CompactCalendarView.SMALL_
 
 
 class CompactCalendarController {
+
+    public void setOnMonthDrawCompleteListener(OnMonthDrawCompleteListener onMonthDrawCompleteListener) {
+        this.onMonthDrawCompleteListener = onMonthDrawCompleteListener;
+    }
+
+    public interface OnMonthDrawCompleteListener {
+        void onMonthDrawComplete(int heightPerDay, int rowCount, int currentMonth);
+    }
 
     public static final int IDLE = 0;
     public static final int EXPOSE_CALENDAR_ANIMATION = 1;
@@ -109,14 +118,33 @@ class CompactCalendarController {
     private int calenderBackgroundColor = Color.WHITE;
     private int otherMonthDaysTextColor;
     private TimeZone timeZone;
-
+    private int currentRowCount = 5;
     /**
      * Only used in onDrawCurrentMonth to temporarily calculate previous month days
      */
     private Calendar tempPreviousMonthCalendar;
+    private boolean showCurrentDayIndicator = true;
+    private OnMonthDrawCompleteListener onMonthDrawCompleteListener;
+
+
+    public void setShowCurrentDayIndicator(boolean showCurrentDayIndicator) {
+        this.showCurrentDayIndicator = showCurrentDayIndicator;
+    }
+
+    public boolean getShowCurrentDayIndicator() {
+        return showCurrentDayIndicator;
+    }
 
     private enum Direction {
         NONE, HORIZONTAL, VERTICAL
+    }
+
+    public int getCurrentRowCount() {
+        return currentRowCount;
+    }
+
+    public void setCurrentRowCount(int currentRowCount) {
+        this.currentRowCount = currentRowCount;
     }
 
     CompactCalendarController(Paint dayPaint, OverScroller scroller, Rect textSizeRect, AttributeSet attrs,
@@ -407,8 +435,9 @@ class CompactCalendarController {
     }
 
     void onMeasure(int width, int height, int paddingRight, int paddingLeft) {
+        Log.e("Height per day", heightPerDay + "");
         widthPerDay = (width) / DAYS_IN_WEEK;
-        heightPerDay = targetHeight > 0 ? targetHeight / 7 : height / 7;
+        heightPerDay = heightPerDay != 0 ? heightPerDay : (targetHeight > 0 ? targetHeight / 7 : height / 7);
         this.width = width;
         this.distanceThresholdForAutoScroll = (int) (width * 0.50);
         this.height = height;
@@ -419,7 +448,7 @@ class CompactCalendarController {
         bigCircleIndicatorRadius = getInterpolatedBigCircleIndicator();
 
         // scale the selected day indicators slightly so that event indicators can be drawn below
-        bigCircleIndicatorRadius = shouldDrawIndicatorsBelowSelectedDays && eventIndicatorStyle == CompactCalendarView.SMALL_INDICATOR ? bigCircleIndicatorRadius * 0.85f : bigCircleIndicatorRadius;
+        bigCircleIndicatorRadius = shouldDrawIndicatorsBelowSelectedDays && eventIndicatorStyle == SMALL_INDICATOR ? bigCircleIndicatorRadius * 0.85f : bigCircleIndicatorRadius;
     }
 
     //assume square around each day of width and height = heightPerDay and get diagonal line length
@@ -730,12 +759,16 @@ class CompactCalendarController {
 
     private void drawNextMonth(Canvas canvas, int offset) {
         setCalenderToFirstDayOfMonth(calendarWithFirstDayOfMonth, currentDate, -monthsScrolledSoFar, offset);
-        drawMonth(canvas, calendarWithFirstDayOfMonth, (width * (-monthsScrolledSoFar + 1)));
+        drawMonth(canvas, calendarWithFirstDayOfMonth, (width * (-monthsScrolledSoFar + 1)), false);
+//        Log.e("Height per day", heightPerDay + "");
+//        Log.e("Target heitht", targetHeight + "");
     }
 
     private void drawCurrentMonth(Canvas canvas) {
         setCalenderToFirstDayOfMonth(calendarWithFirstDayOfMonth, currentDate, monthsScrolledSoFar(), 0);
-        drawMonth(canvas, calendarWithFirstDayOfMonth, width * -monthsScrolledSoFar);
+        drawMonth(canvas, calendarWithFirstDayOfMonth, width * -monthsScrolledSoFar, true);
+//        Log.e("Height per day", heightPerDay + "");
+//        Log.e("Target heitht", targetHeight + "");
     }
 
     private int monthsScrolledSoFar() {
@@ -744,7 +777,9 @@ class CompactCalendarController {
 
     private void drawPreviousMonth(Canvas canvas, int offset) {
         setCalenderToFirstDayOfMonth(calendarWithFirstDayOfMonth, currentDate, -monthsScrolledSoFar, offset);
-        drawMonth(canvas, calendarWithFirstDayOfMonth, (width * (-monthsScrolledSoFar - 1)));
+        drawMonth(canvas, calendarWithFirstDayOfMonth, (width * (-monthsScrolledSoFar - 1)), false);
+//        Log.e("Height per day", heightPerDay + "");
+//        Log.e("Target heitht", targetHeight + "");
     }
 
     private void calculateXPositionOffset() {
@@ -871,7 +906,23 @@ class CompactCalendarController {
         return dayOfWeek;
     }
 
-    void drawMonth(Canvas canvas, Calendar monthToDrawCalender, int offset) {
+    /**
+     * calculates the approximate height of a text, depending on a demo text
+     * avoid repeated calls (e.g. inside drawing methods)
+     *
+     * @param paint
+     * @param demoText
+     * @return
+     */
+    public static int calcTextHeight(Paint paint, String demoText) {
+
+        Rect r = new Rect();
+        r.set(0, 0, 0, 0);
+        paint.getTextBounds(demoText, 0, demoText.length(), r);
+        return r.height();
+    }
+
+    void drawMonth(Canvas canvas, Calendar monthToDrawCalender, int offset, boolean isShowing) {
         drawEvents(canvas, monthToDrawCalender, offset);
 
         //offset by one because we want to start from Monday
@@ -885,6 +936,8 @@ class CompactCalendarController {
         boolean isAnimatingWithExpose = animationStatus == EXPOSE_CALENDAR_ANIMATION;
 
         int maximumMonthDay = monthToDrawCalender.getActualMaximum(Calendar.DAY_OF_MONTH);
+        int rowCount = 6;
+
 
         tempPreviousMonthCalendar.setTimeInMillis(monthToDrawCalender.getTimeInMillis());
         tempPreviousMonthCalendar.add(Calendar.MONTH, -1);
@@ -928,11 +981,14 @@ class CompactCalendarController {
                     drawDayCircleIndicator(currentSelectedDayIndicatorStyle, canvas, xPosition, yPosition, currentSelectedDayBackgroundColor);
                     defaultCalenderTextColorToUse = currentSelectedDayTextColor;
                 } else if (isSameYearAsToday && isSameMonthAsToday && todayDayOfMonth == day && !isAnimatingWithExpose) {
-                    // TODO calculate position of circle in a more reliable way
-                    //TODO: Không hiển thị ngày hiện tại
-//                    drawDayCircleIndicator(currentDayIndicatorStyle, canvas, xPosition, yPosition, currentDayBackgroundColor);
+//                    List<Event> uniqEvents = eventsContainer.getEventsFor(currentDate.getTime());
+//                    if (uniqEvents != null && uniqEvents.size() > 0)
+//                        drawEventIndicatorCircle(canvas, xPosition, yPosition, uniqEvents.get(0).getColor());
+//                    else if (showCurrentDayIndicator)
+                    drawDayCircleIndicator(currentDayIndicatorStyle, canvas, xPosition, yPosition, currentDayBackgroundColor);
                     defaultCalenderTextColorToUse = currentDayTextColor;
                 }
+
                 if (day <= 0) {
                     if (displayOtherMonthDays) {
                         // Display day month before
@@ -951,6 +1007,14 @@ class CompactCalendarController {
                     dayPaint.setStyle(Paint.Style.FILL);
                     dayPaint.setColor(defaultCalenderTextColorToUse);
                     canvas.drawText(String.valueOf(day), xPosition, yPosition, dayPaint);
+                    if (day == maximumMonthDay) {
+                        if (isShowing) {
+                            int oldRowCount = currentRowCount;
+                            currentRowCount = dayRow + 1;
+                            if (oldRowCount != currentRowCount && onMonthDrawCompleteListener != null)
+                                onMonthDrawCompleteListener.onMonthDrawComplete(heightPerDay, currentRowCount, currentCalender.get(Calendar.MONTH));
+                        }
+                    }
                 }
             }
         }
