@@ -32,8 +32,18 @@ public class CompactCalendarView extends View {
     private GestureDetectorCompat gestureDetector;
     private boolean horizontalScrollEnabled = true;
 
+
     public void setShowCurrentDayIndicator(boolean isShow) {
         compactCalendarController.setShowCurrentDayIndicator(isShow);
+    }
+
+    public void setMinDate(Long minDate) {
+        compactCalendarController.setMinDate(minDate);
+    }
+
+
+    public void setMaxDate(Long maxDate) {
+        compactCalendarController.setMaxDate(maxDate);
     }
 
     public interface CompactCalendarViewListener {
@@ -96,11 +106,21 @@ public class CompactCalendarView extends View {
 
     public CompactCalendarView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
-        compactCalendarController = new CompactCalendarController(new Paint(), new OverScroller(getContext()),
-                new Rect(), attrs, getContext(), Color.argb(255, 233, 84, 81),
-                Color.argb(255, 64, 64, 64), Color.argb(255, 219, 219, 219), VelocityTracker.obtain(),
-                Color.argb(255, 100, 68, 65), new EventsContainer(Calendar.getInstance()),
-                Locale.getDefault(), TimeZone.getDefault());
+        compactCalendarController = new CompactCalendarController(getContext(),
+                new Paint(),
+                new OverScroller(getContext()),
+                new Rect(),
+                attrs,
+                VelocityTracker.obtain(),
+                new EventsContainer(Calendar.getInstance()),
+                Locale.getDefault(),
+                TimeZone.getDefault(),
+                Color.argb(255, 233, 84, 81),
+                Color.argb(255, 64, 64, 64),
+                Color.argb(255, 219, 219, 219),
+                Color.argb(255, 100, 68, 65),
+                Color.parseColor("#cacaca")
+        );
         gestureDetector = new GestureDetectorCompat(getContext(), gestureListener);
         animationHandler = new AnimationHandler(compactCalendarController, this);
     }
@@ -202,7 +222,7 @@ public class CompactCalendarView extends View {
 
     /**
      * see {@link #addEvent(Event, boolean)} when adding single events to control if calendar should redraw
-     * or {@link #addEvents(java.util.List)}  when adding multiple events
+     * or {@link #addEvents(List)}  when adding multiple events
      *
      * @param event
      */
@@ -287,7 +307,7 @@ public class CompactCalendarView extends View {
 
     /**
      * see {@link #removeEvent(Event, boolean)} when removing single events to control if calendar should redraw
-     * or {@link #removeEvents(java.util.List)} (java.util.List)}  when removing multiple events
+     * or {@link #removeEvents(List)} (java.util.List)}  when removing multiple events
      *
      * @param event
      */
@@ -354,6 +374,11 @@ public class CompactCalendarView extends View {
         }
     }
 
+    /**
+     * Hiển thị ngày của các tháng khác trong lịch
+     *
+     * @param displayOtherMonthDays boolean
+     */
     public void displayOtherMonthDays(boolean displayOtherMonthDays) {
         compactCalendarController.setDisplayOtherMonthDays(displayOtherMonthDays);
         invalidate();

@@ -1,5 +1,6 @@
 package com.github.sundeepk.compactcalendarview.domain;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 public class Event {
@@ -54,6 +55,7 @@ public class Event {
         return result;
     }
 
+    @NonNull
     @Override
     public String toString() {
         return "Event{" +

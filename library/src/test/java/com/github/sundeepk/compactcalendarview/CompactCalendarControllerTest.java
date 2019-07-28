@@ -60,7 +60,7 @@ public class CompactCalendarControllerTest {
 
         when(velocityTracker.getXVelocity()).thenReturn(-200f);
         underTest =
-                new CompactCalendarController(paint, overScroller, rect, null, null, 0, 0, 0, velocityTracker, 0, eventsContainer, Locale.getDefault(), TimeZone.getDefault());
+                new CompactCalendarController(null, paint, overScroller, rect, null, velocityTracker, eventsContainer, Locale.getDefault(), TimeZone.getDefault(), 0, 0, 0, 0);
     }
 
     @Test(expected=IllegalArgumentException.class)

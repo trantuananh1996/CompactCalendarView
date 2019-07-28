@@ -19,6 +19,8 @@ import android.widget.OverScroller;
 
 import com.github.sundeepk.compactcalendarview.domain.Event;
 
+import org.joda.time.DateTime;
+
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
@@ -113,6 +115,7 @@ class CompactCalendarController {
     private int currentDayBackgroundColor;
     private int currentDayTextColor;
     private int calenderTextColor;
+    private int calendarDisableTextColor;
     private int currentSelectedDayBackgroundColor;
     private int currentSelectedDayTextColor;
     private int calenderBackgroundColor = Color.WHITE;
@@ -126,6 +129,28 @@ class CompactCalendarController {
     private boolean showCurrentDayIndicator = true;
     private OnMonthDrawCompleteListener onMonthDrawCompleteListener;
 
+
+    //    int minimumDay = Integer.MIN_VALUE;
+//    int maximumDay = Integer.MAX_VALUE;
+    DateTime minimumCalendar = new DateTime().withYear(1900);
+    DateTime maximumCalendar = new DateTime().withYear(2100);
+
+    public void setMinDate(Long minDate) {
+        if (minDate != null) {
+            minimumCalendar = new DateTime(minDate);
+
+
+            Log.d(getClass().getSimpleName(), "setMinDate() called with: minDate = [" + minimumCalendar.toString() + "]");
+
+        }
+    }
+
+
+    public void setMaxDate(Long maxDate) {
+        if (maxDate != null) {
+            maximumCalendar = new DateTime(maxDate);
+        }
+    }
 
     public void setShowCurrentDayIndicator(boolean showCurrentDayIndicator) {
         this.showCurrentDayIndicator = showCurrentDayIndicator;
@@ -147,11 +172,15 @@ class CompactCalendarController {
         this.currentRowCount = currentRowCount;
     }
 
-    CompactCalendarController(Paint dayPaint, OverScroller scroller, Rect textSizeRect, AttributeSet attrs,
-                              Context context, int currentDayBackgroundColor, int calenderTextColor,
-                              int currentSelectedDayBackgroundColor, VelocityTracker velocityTracker,
-                              int multiEventIndicatorColor, EventsContainer eventsContainer,
-                              Locale locale, TimeZone timeZone) {
+    CompactCalendarController(Context context, Paint dayPaint,
+                              OverScroller scroller,
+                              Rect textSizeRect,
+                              AttributeSet attrs,
+                              VelocityTracker velocityTracker, EventsContainer eventsContainer, Locale locale, TimeZone timeZone, int currentDayBackgroundColor,
+                              int calenderTextColor,
+                              int currentSelectedDayBackgroundColor,
+                              int multiEventIndicatorColor,
+                              int calendarDisableTextColor) {
         this.dayPaint = dayPaint;
         this.scroller = scroller;
         this.textSizeRect = textSizeRect;
@@ -165,6 +194,7 @@ class CompactCalendarController {
         this.locale = locale;
         this.timeZone = timeZone;
         this.displayOtherMonthDays = false;
+        this.calendarDisableTextColor = calendarDisableTextColor;
         loadAttributes(attrs, context);
         init(context);
     }
@@ -197,6 +227,7 @@ class CompactCalendarController {
     }
 
     private void init(Context context) {
+
         currentCalender = Calendar.getInstance(timeZone, locale);
         todayCalender = Calendar.getInstance(timeZone, locale);
         calendarWithFirstDayOfMonth = Calendar.getInstance(timeZone, locale);
@@ -435,7 +466,6 @@ class CompactCalendarController {
     }
 
     void onMeasure(int width, int height, int paddingRight, int paddingLeft) {
-        Log.e("Height per day", heightPerDay + "");
         widthPerDay = (width) / DAYS_IN_WEEK;
         heightPerDay = heightPerDay != 0 ? heightPerDay : (targetHeight > 0 ? targetHeight / 7 : height / 7);
         this.width = width;
@@ -516,11 +546,18 @@ class CompactCalendarController {
         } else {
             dayOfMonth += dayColumn;
         }
+
+
         if (dayOfMonth < calendarWithFirstDayOfMonth.getActualMaximum(Calendar.DAY_OF_MONTH)
                 && dayOfMonth >= 0) {
             calendarWithFirstDayOfMonth.add(Calendar.DATE, dayOfMonth);
 
             currentCalender.setTimeInMillis(calendarWithFirstDayOfMonth.getTimeInMillis());
+
+            DateTime dateTime = new DateTime(currentCalender.getTime().getTime());
+
+            if (dateTime.isBefore(minimumCalendar) || dateTime.isAfter(maximumCalendar))
+                return;
             performOnDayClickCallback(currentCalender.getTime(), e);
         }
     }
@@ -760,15 +797,12 @@ class CompactCalendarController {
     private void drawNextMonth(Canvas canvas, int offset) {
         setCalenderToFirstDayOfMonth(calendarWithFirstDayOfMonth, currentDate, -monthsScrolledSoFar, offset);
         drawMonth(canvas, calendarWithFirstDayOfMonth, (width * (-monthsScrolledSoFar + 1)), false);
-//        Log.e("Height per day", heightPerDay + "");
-//        Log.e("Target heitht", targetHeight + "");
     }
 
     private void drawCurrentMonth(Canvas canvas) {
         setCalenderToFirstDayOfMonth(calendarWithFirstDayOfMonth, currentDate, monthsScrolledSoFar(), 0);
         drawMonth(canvas, calendarWithFirstDayOfMonth, width * -monthsScrolledSoFar, true);
-//        Log.e("Height per day", heightPerDay + "");
-//        Log.e("Target heitht", targetHeight + "");
+
     }
 
     private int monthsScrolledSoFar() {
@@ -778,8 +812,6 @@ class CompactCalendarController {
     private void drawPreviousMonth(Canvas canvas, int offset) {
         setCalenderToFirstDayOfMonth(calendarWithFirstDayOfMonth, currentDate, -monthsScrolledSoFar, offset);
         drawMonth(canvas, calendarWithFirstDayOfMonth, (width * (-monthsScrolledSoFar - 1)), false);
-//        Log.e("Height per day", heightPerDay + "");
-//        Log.e("Target heitht", targetHeight + "");
     }
 
     private void calculateXPositionOffset() {
@@ -938,7 +970,6 @@ class CompactCalendarController {
         int maximumMonthDay = monthToDrawCalender.getActualMaximum(Calendar.DAY_OF_MONTH);
         int rowCount = 6;
 
-
         tempPreviousMonthCalendar.setTimeInMillis(monthToDrawCalender.getTimeInMillis());
         tempPreviousMonthCalendar.add(Calendar.MONTH, -1);
         int maximumPreviousMonthDay = tempPreviousMonthCalendar.getActualMaximum(Calendar.DAY_OF_MONTH);
@@ -976,6 +1007,8 @@ class CompactCalendarController {
                 }
             } else {
                 int day = ((dayRow - 1) * 7 + colDirection + 1) - firstDayOfMonth;
+
+
                 int defaultCalenderTextColorToUse = calenderTextColor;
                 if (currentCalender.get(Calendar.DAY_OF_MONTH) == day && isSameMonthAsCurrentCalendar && !isAnimatingWithExpose) {
                     drawDayCircleIndicator(currentSelectedDayIndicatorStyle, canvas, xPosition, yPosition, currentSelectedDayBackgroundColor);
@@ -990,6 +1023,7 @@ class CompactCalendarController {
                 }
 
                 if (day <= 0) {
+                    //Ngày của tháng trước tháng hiện tại
                     if (displayOtherMonthDays) {
                         // Display day month before
                         dayPaint.setStyle(Paint.Style.FILL);
@@ -997,6 +1031,7 @@ class CompactCalendarController {
                         canvas.drawText(String.valueOf(maximumPreviousMonthDay + day), xPosition, yPosition, dayPaint);
                     }
                 } else if (day > maximumMonthDay) {
+                    //Ngày của tháng sau tháng hiện tại
                     if (displayOtherMonthDays) {
                         // Display day month after
                         dayPaint.setStyle(Paint.Style.FILL);
@@ -1004,9 +1039,21 @@ class CompactCalendarController {
                         canvas.drawText(String.valueOf(day - maximumMonthDay), xPosition, yPosition, dayPaint);
                     }
                 } else {
-                    dayPaint.setStyle(Paint.Style.FILL);
-                    dayPaint.setColor(defaultCalenderTextColorToUse);
-                    canvas.drawText(String.valueOf(day), xPosition, yPosition, dayPaint);
+                    //Ngày của tháng hiện tại
+//                    Log.e("Day", day + "");
+                    Paint currentPaint = new Paint(dayPaint);
+                    currentPaint.setStyle(Paint.Style.FILL);
+                    DateTime dayCalendar = new DateTime(monthToDrawCalender.getTime().getTime())
+                            .withDayOfMonth(day > maximumMonthDay ? maximumMonthDay : day);
+//                    Log.e("Date", dayCalendar.toString());
+//                    Log.e("Minimum", minimumCalendar.toString());
+//                    Log.e("Maximum", maximumCalendar.toString());
+//                    Log.e("---", "---");
+                    if (dayCalendar.isBefore(minimumCalendar) || dayCalendar.isAfter(maximumCalendar)) {
+                        currentPaint.setColor(calendarDisableTextColor);
+                    } else currentPaint.setColor(defaultCalenderTextColorToUse);
+
+                    canvas.drawText(String.valueOf(day), xPosition, yPosition, currentPaint);
                     if (day == maximumMonthDay) {
                         if (isShowing) {
                             int oldRowCount = currentRowCount;
