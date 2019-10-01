@@ -10,7 +10,6 @@ import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
-import android.util.Log;
 import android.util.TypedValue;
 import android.view.MotionEvent;
 import android.view.VelocityTracker;
@@ -140,7 +139,7 @@ class CompactCalendarController {
             minimumCalendar = new DateTime(minDate);
 
 
-            Log.d(getClass().getSimpleName(), "setMinDate() called with: minDate = [" + minimumCalendar.toString() + "]");
+            // Log.d(getClass().getSimpleName(), "setMinDate() called with: minDate = [" + minimumCalendar.toString() + "]");
 
         }
     }
@@ -548,16 +547,18 @@ class CompactCalendarController {
         }
 
 
-        if (dayOfMonth < calendarWithFirstDayOfMonth.getActualMaximum(Calendar.DAY_OF_MONTH)
-                && dayOfMonth >= 0) {
+        if (dayOfMonth < calendarWithFirstDayOfMonth.getActualMaximum(Calendar.DAY_OF_MONTH) && dayOfMonth >= 0) {
+            Calendar calendarWithFirstDayOfMonthClone = (Calendar) calendarWithFirstDayOfMonth.clone();
+            calendarWithFirstDayOfMonthClone.add(Calendar.DATE, dayOfMonth);
+            Calendar currentCalenderClone = (Calendar) currentCalender.clone();
+            currentCalenderClone.setTimeInMillis(calendarWithFirstDayOfMonthClone.getTimeInMillis());
+            DateTime dateTime = new DateTime(currentCalenderClone.getTime().getTime());
+            if (dateTime.isBefore(minimumCalendar) || dateTime.isAfter(maximumCalendar))
+                return;
             calendarWithFirstDayOfMonth.add(Calendar.DATE, dayOfMonth);
 
             currentCalender.setTimeInMillis(calendarWithFirstDayOfMonth.getTimeInMillis());
 
-            DateTime dateTime = new DateTime(currentCalender.getTime().getTime());
-
-            if (dateTime.isBefore(minimumCalendar) || dateTime.isAfter(maximumCalendar))
-                return;
             performOnDayClickCallback(currentCalender.getTime(), e);
         }
     }
