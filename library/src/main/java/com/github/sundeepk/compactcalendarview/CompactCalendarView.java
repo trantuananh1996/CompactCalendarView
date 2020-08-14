@@ -16,6 +16,8 @@ import androidx.core.view.GestureDetectorCompat;
 
 import com.github.sundeepk.compactcalendarview.domain.Event;
 
+import org.joda.time.DateTime;
+
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
@@ -44,6 +46,11 @@ public class CompactCalendarView extends View {
 
     public void setMaxDate(Long maxDate) {
         compactCalendarController.setMaxDate(maxDate);
+    }
+
+    public void setDateRange(DateTime startDate, DateTime endDate) {
+        compactCalendarController.setDateRange(startDate,endDate);
+        invalidate();
     }
 
     public interface CompactCalendarViewListener {

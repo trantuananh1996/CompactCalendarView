@@ -20,11 +20,14 @@ import com.github.sundeepk.compactcalendarview.domain.Event;
 
 import org.joda.time.DateTime;
 
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
+
+import java8.util.stream.StreamSupport;
 
 import static com.github.sundeepk.compactcalendarview.CompactCalendarView.CompactCalendarViewListener;
 import static com.github.sundeepk.compactcalendarview.CompactCalendarView.FILL_LARGE_INDICATOR;
@@ -36,6 +39,11 @@ class CompactCalendarController {
 
     public void setOnMonthDrawCompleteListener(OnMonthDrawCompleteListener onMonthDrawCompleteListener) {
         this.onMonthDrawCompleteListener = onMonthDrawCompleteListener;
+    }
+
+    public void setDateRange(DateTime startDate, DateTime endDate) {
+        this.dateRangeStartDate = startDate;
+        this.dateRangeEndDate = endDate;
     }
 
     public interface OnMonthDrawCompleteListener {
@@ -134,6 +142,9 @@ class CompactCalendarController {
     DateTime minimumCalendar = new DateTime().withYear(1900);
     DateTime maximumCalendar = new DateTime().withYear(2100);
 
+    DateTime dateRangeStartDate;
+    DateTime dateRangeEndDate;
+
     public void setMinDate(Long minDate) {
         if (minDate != null) {
             minimumCalendar = new DateTime(minDate);
@@ -160,7 +171,9 @@ class CompactCalendarController {
     }
 
     private enum Direction {
-        NONE, HORIZONTAL, VERTICAL
+        NONE,
+        HORIZONTAL,
+        VERTICAL
     }
 
     public int getCurrentRowCount() {
@@ -899,6 +912,44 @@ class CompactCalendarController {
         }
     }
 
+    void drawDateRange(Canvas canvas, Calendar currentMonthToDrawCalender, int offset) {
+        if (dateRangeStartDate == null || dateRangeEndDate == null) return;
+        int currentMonth = currentMonthToDrawCalender.get(Calendar.MONTH);
+        List<DateTime> dateRangeInMonth = getDateRangeInMonth(dateRangeStartDate, dateRangeEndDate, currentMonth);
+        if (dateRangeInMonth.size() == 1) return;
+        for (DateTime dateTime : dateRangeInMonth) {
+            int index = dateRangeInMonth.indexOf(dateTime);
+            dayPaint.setColor(Color.parseColor("#e5f7ff"));
+            dayPaint.setStyle(Paint.Style.FILL);
+            eventsCalendar.setTimeInMillis(dateTime.getMillis());
+            int dayOfWeek = getDayOfWeek(eventsCalendar);
+            if (isRtl) {
+                dayOfWeek = 6 - dayOfWeek;
+            }
+            int weekNumberForMonth = eventsCalendar.get(Calendar.WEEK_OF_MONTH);
+            float xPositionDateRange = widthPerDay * dayOfWeek + paddingWidth + accumulatedScrollOffset.x + offset;
+            float yPositionDateRange = weekNumberForMonth * heightPerDay + paddingHeight * 0.75f;
+            if (index == 0) {
+                canvas.drawRect(xPositionDateRange, yPositionDateRange - heightPerDay / 2.75f, xPositionDateRange + widthPerDay / 2f, yPositionDateRange + heightPerDay / 2.75f, dayPaint);
+            } else if (index == dateRangeInMonth.size() - 1) {
+
+                canvas.drawRect(xPositionDateRange - widthPerDay / 2f, yPositionDateRange - heightPerDay / 2.75f, xPositionDateRange, yPositionDateRange + heightPerDay / 2.75f, dayPaint);
+            } else
+                canvas.drawRect(xPositionDateRange - widthPerDay / 2f, yPositionDateRange - heightPerDay / 2.75f, xPositionDateRange + widthPerDay / 2f, yPositionDateRange + heightPerDay / 2.75f, dayPaint);
+        }
+    }
+
+    private List<DateTime> getDateRangeInMonth(DateTime dateRangeStartDate, DateTime dateRangeEndDate, int currentMonth) {
+        List<DateTime> dateTimes = new ArrayList<>();
+        for (int i = 0; i < Math.abs(dateRangeEndDate.getDayOfYear() - dateRangeStartDate.getDayOfYear()) + 1; i++) {
+            DateTime dateTime = dateRangeStartDate.plusDays(i);
+            if (dateTime.toCalendar(Locale.getDefault()).get(Calendar.MONTH) == currentMonth)
+                dateTimes.add(dateTime);
+        }
+
+        return dateTimes;
+    }
+
     private void drawSingleEvent(Canvas canvas, float xPosition, float yPosition, List<Event> eventsList) {
         Event event = eventsList.get(0);
         drawEventIndicatorCircle(canvas, xPosition, yPosition, event.getColor());
@@ -956,6 +1007,7 @@ class CompactCalendarController {
     }
 
     void drawMonth(Canvas canvas, Calendar monthToDrawCalender, int offset, boolean isShowing) {
+        drawDateRange(canvas, monthToDrawCalender, offset);
         drawEvents(canvas, monthToDrawCalender, offset);
 
         //offset by one because we want to start from Monday
@@ -1014,13 +1066,15 @@ class CompactCalendarController {
                 if (currentCalender.get(Calendar.DAY_OF_MONTH) == day && isSameMonthAsCurrentCalendar && !isAnimatingWithExpose) {
                     drawDayCircleIndicator(currentSelectedDayIndicatorStyle, canvas, xPosition, yPosition, currentSelectedDayBackgroundColor);
                     defaultCalenderTextColorToUse = currentSelectedDayTextColor;
-                } else if (isSameYearAsToday && isSameMonthAsToday && todayDayOfMonth == day && !isAnimatingWithExpose) {
-//                    List<Event> uniqEvents = eventsContainer.getEventsFor(currentDate.getTime());
-//                    if (uniqEvents != null && uniqEvents.size() > 0)
-//                        drawEventIndicatorCircle(canvas, xPosition, yPosition, uniqEvents.get(0).getColor());
-//                    else if (showCurrentDayIndicator)
-                    drawDayCircleIndicator(currentDayIndicatorStyle, canvas, xPosition, yPosition, currentDayBackgroundColor);
-                    defaultCalenderTextColorToUse = currentDayTextColor;
+                } else if (isSameYearAsToday && isSameMonthAsToday && todayDayOfMonth == day && !isAnimatingWithExpose) {//Cùng ngày hnay
+                    if (eventIndicatorStyle == FILL_LARGE_INDICATOR && hasEvent(day, monthToDrawCalender)) {//Có sự kiện dạng fill thì đổi màu text
+                        defaultCalenderTextColorToUse = currentSelectedDayTextColor;
+                    } else {
+                        drawDayCircleIndicator(currentDayIndicatorStyle, canvas, xPosition, yPosition, currentDayBackgroundColor);
+                        defaultCalenderTextColorToUse = currentDayTextColor;
+                    }
+                } else if (eventIndicatorStyle == FILL_LARGE_INDICATOR && hasEvent(day, monthToDrawCalender)) {
+                    defaultCalenderTextColorToUse = currentSelectedDayTextColor;
                 }
 
                 if (day <= 0) {
@@ -1041,20 +1095,14 @@ class CompactCalendarController {
                     }
                 } else {
                     //Ngày của tháng hiện tại
-//                    Log.e("Day", day + "");
-                    Paint currentPaint = new Paint(dayPaint);
-                    currentPaint.setStyle(Paint.Style.FILL);
+                    dayPaint.setStyle(Paint.Style.FILL);
                     DateTime dayCalendar = new DateTime(monthToDrawCalender.getTime().getTime())
-                            .withDayOfMonth(day > maximumMonthDay ? maximumMonthDay : day);
-//                    Log.e("Date", dayCalendar.toString());
-//                    Log.e("Minimum", minimumCalendar.toString());
-//                    Log.e("Maximum", maximumCalendar.toString());
-//                    Log.e("---", "---");
+                            .withDayOfMonth(Math.min(day, maximumMonthDay));
                     if (dayCalendar.isBefore(minimumCalendar) || dayCalendar.isAfter(maximumCalendar)) {
-                        currentPaint.setColor(calendarDisableTextColor);
-                    } else currentPaint.setColor(defaultCalenderTextColorToUse);
+                        dayPaint.setColor(calendarDisableTextColor);
+                    } else dayPaint.setColor(defaultCalenderTextColorToUse);
 
-                    canvas.drawText(String.valueOf(day), xPosition, yPosition, currentPaint);
+                    canvas.drawText(String.valueOf(day), xPosition, yPosition, dayPaint);
                     if (day == maximumMonthDay) {
                         if (isShowing) {
                             int oldRowCount = currentRowCount;
@@ -1066,6 +1114,17 @@ class CompactCalendarController {
                 }
             }
         }
+    }
+
+    private boolean hasEvent(int day, Calendar monthToDrawCalender) {
+        int currentMonth = monthToDrawCalender.get(Calendar.MONTH);
+        List<Events> uniqEvents = eventsContainer.getEventsForMonthAndYear(currentMonth, monthToDrawCalender.get(Calendar.YEAR));
+        if (uniqEvents == null || uniqEvents.size() == 0) return false;
+        return StreamSupport.stream(uniqEvents)
+                .anyMatch(events -> {
+                    DateTime dateTime = new DateTime(events.getTimeInMillis());
+                    return dateTime.getDayOfMonth() == day && currentMonth == dateTime.toCalendar(Locale.getDefault()).get(Calendar.MONTH);
+                });
     }
 
     private void drawDayCircleIndicator(int indicatorStyle, Canvas canvas, float x, float y, int color) {
@@ -1090,9 +1149,9 @@ class CompactCalendarController {
         dayPaint.setColor(color);
         if (animationStatus == ANIMATE_INDICATORS) {
             float maxRadius = circleScale * bigCircleIndicatorRadius * 1.4f;
-            drawCircle(canvas, growfactorIndicator > maxRadius ? maxRadius : growfactorIndicator, x, y - (textHeight / 6));
+            drawCircle(canvas, Math.min(growfactorIndicator, maxRadius), x, y - (textHeight / 6f));
         } else {
-            drawCircle(canvas, circleScale * bigCircleIndicatorRadius, x, y - (textHeight / 6));
+            drawCircle(canvas, circleScale * bigCircleIndicatorRadius, x, y - (textHeight / 6f));
         }
     }
 
